@@ -1,9 +1,8 @@
-
 local M = {}
 
 M.defaults = {
     keymaps = {
-        build = '<leader>bue', -- Default keybinding for build and create cc.json
+        build = '<leader>bue', -- Default keybinding for build
     }
 }
 
