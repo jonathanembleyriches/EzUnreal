@@ -79,4 +79,37 @@ function M.unreal_run()
     run_term:toggle()
 end
 
+
+function M.unreal_run2()
+    dap.adapters.unreal_editor = {
+        type = 'executable',
+        command = 'cmd.exe',
+        args = { '/C', string.format(
+                '"%s\\Engine\\Binaries\\Win64\\UnrealEditor.exe" "%s"',
+                engine_path,
+                u_project_path)
+        },
+    }
+
+    dap.configurations.unreal = {
+        {
+            name = "Launch Unreal Editor",
+            type = "unreal_editor",
+            request = "launch",
+            program = function()
+                return string.format(
+                    '"%s\\Engine\\Binaries\\Win64\\UnrealEditor.exe" "%s"',
+                    engine_path,
+                    u_project_path
+                )
+            end,
+            cwd = vim.fn.getcwd(),
+            stopOnEntry = false,
+        },
+    }
+
+    dap.continue()
+end
+
+
 return M
