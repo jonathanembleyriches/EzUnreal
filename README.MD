@@ -18,7 +18,7 @@ Use your favorite Neovim plugin manager to install **EzUnreal**.
 use {
   'yourusername/ezunreal',
   config = function()
-    require('unreal_builder').setup({
+    require('EzUnreal').setup({
       keymaps = {
         build = '<leader>ub', -- Customize your keybinding here
       }
