@@ -9,7 +9,7 @@ function M.setup(user_config)
     if options and options.keymaps and options.keymaps.build then
         -- Set up keybindings
         vim.api.nvim_set_keymap('n', options.keymaps.build, ':lua require("EzUnreal.commands").unreal_build_toggle()<CR>', { noremap = true, silent = true })
-        vim.api.nvim_set_keymap('n', options.keymaps.build, ':lua require("EzUnreal.commands").unreal_run()<CR>', { noremap = true, silent = true })
+        vim.api.nvim_set_keymap('n', options.keymaps.run, ':lua require("EzUnreal.commands").unreal_run()<CR>', { noremap = true, silent = true })
     else
         error("EzUnreal: keymaps configuration is missing or incorrect")
     end
