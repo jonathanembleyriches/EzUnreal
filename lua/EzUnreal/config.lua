@@ -3,6 +3,7 @@ local M = {}
 M.defaults = {
     keymaps = {
         build = '<leader>bue', -- Default keybinding for build
+        run= '<leader>rue', -- Default keybinding for running built project
     }
 }
 

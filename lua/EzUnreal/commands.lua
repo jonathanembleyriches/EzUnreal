@@ -63,6 +63,18 @@ local function run_clang_database_command()
     clang_terminal:toggle()
 end
 
+function M.unreal_run()
+    local run_term= Terminal:new({
+        cmd = string.format(
+            '"%s\\Engine\\Binaries\\Win64\\UnrealEditor.exe" "%s"',
+            engine_path,
+            u_project_path,
+        ),
+        direction = "horizontal",
+        close_on_exit = true,
+    })
+    run_term:toggle()
+end
 function M.unreal_build_toggle()
     run_build_command(run_clang_database_command)
 end
