@@ -62,6 +62,15 @@ local function run_clang_database_command()
             local generated_file_path = engine_path .. "\\compile_commands.json"
             local target_file_path = build_params.project_path .. "\\compile_commands.json"
 
+            -- Check if the target file exists and remove it before renaming
+            if vim.fn.filereadable(target_file_path) == 1 then
+                local remove_ok, remove_err = os.remove(target_file_path)
+                if not remove_ok then
+                    notify("Error removing existing file: " .. remove_err, "error", { title = "File Operation Error" })
+                    return
+                end
+            end
+
             local ok, err = os.rename(generated_file_path, target_file_path)
             if not ok then
                 notify("Error copying file: " .. err, "error", { title = "File Operation Error" })
@@ -72,6 +81,7 @@ local function run_clang_database_command()
     })
     notify("Starting Clang database generation...", "info", { title = "Clang Database" })
     clang_terminal:toggle()
+endang_terminal:toggle()
 end
 
 function M.unreal_build_toggle()
