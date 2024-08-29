@@ -1,6 +1,6 @@
-
 local Job = require('plenary.job')
 local Terminal = require('toggleterm.terminal').Terminal
+local notify = require("notify")
 
 local M = {}
 
@@ -10,6 +10,7 @@ local function load_build_params()
     if params then
         return params()
     else
+        notify("Could not load build parameters from " .. params_file, "error", { title = "Build Error" })
         error("Could not load build parameters from " .. params_file)
     end
 end
@@ -30,10 +31,19 @@ local function run_build_command(callback)
         direction = "horizontal",
         close_on_exit = true,
         on_close = function()
-            print("Build process completed")
+            notify("Build process completed", "info", { title = "Build Status" })
             if callback then callback() end
         end,
+        on_stdout = function(_, output)
+            if string.find(output, "error") then
+                notify("Build Error: " .. output, "error", { title = "Build Error" })
+            end
+        end,
+        on_stderr = function(_, output)
+            notify("Build Error: " .. output, "error", { title = "Build Error" })
+        end,
     })
+    notify("Starting build process...", "info", { title = "Build Status" })
     build_terminal:toggle()
 end
 
@@ -48,24 +58,26 @@ local function run_clang_database_command()
         direction = "horizontal",
         close_on_exit = true,
         on_close = function(term)
-            print("Clang database generation completed")
+            notify("Clang database generation completed", "info", { title = "Clang Database" })
             local generated_file_path = engine_path .. "\\compile_commands.json"
             local target_file_path = build_params.project_path .. "\\compile_commands.json"
 
             local ok, err = os.rename(generated_file_path, target_file_path)
             if not ok then
-                print("Error copying file: " .. err)
+                notify("Error copying file: " .. err, "error", { title = "File Operation Error" })
             else
-                print("File copied successfully")
+                notify("File copied successfully", "info", { title = "File Operation" })
             end
         end,
     })
+    notify("Starting Clang database generation...", "info", { title = "Clang Database" })
     clang_terminal:toggle()
 end
 
 function M.unreal_build_toggle()
     run_build_command(run_clang_database_command)
 end
+
 function M.unreal_run()
     local run_term = Terminal:new({
         cmd = string.format(
@@ -76,11 +88,11 @@ function M.unreal_run()
         direction = "horizontal",
         close_on_exit = true,
     })
+    notify("Launching Unreal Editor...", "info", { title = "Unreal Editor" })
     run_term:toggle()
 end
+
 local dap = require('dap')
-
-
 
 function M.unreal_run2()
     dap.adapters.unreal_editor = {
@@ -106,7 +118,8 @@ function M.unreal_run2()
         stopOnEntry = false,
     }
 
-    -- Force the specific configuration to run
+    notify("Launching Unreal Editor with DAP...", "info", { title = "Unreal Editor DAP" })
     dap.run(configuration)
 end
+
 return M
