@@ -16,7 +16,7 @@ Use your favorite Neovim plugin manager to install **EzUnreal**.
 
 ```lua
 use {
-  'yourusername/ezunreal',
+  'jonathanembleyriches/EzUnreal',
   config = function()
     require('EzUnreal').setup({
       keymaps = {
@@ -27,3 +27,5 @@ use {
   lazy = true,
   cmd = "EzUnrealBuild", -- Command to lazy load the plugin
 }
+```
+
