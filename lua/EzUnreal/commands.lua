@@ -20,19 +20,44 @@ local engine_path = build_params.engine_path
 local target = build_params.project_name .. "Editor"
 local u_project_path = build_params.project_path .. "\\" .. build_params.project_name .. ".uproject"
 
-local function run_in_separate_terminal(cmd, title)
-    local separate_terminal = Terminal:new({
-        cmd = cmd,
-        direction = "float", -- Opens in a floating terminal
-        close_on_exit = false, -- Keeps the terminal open after execution
-        float_opts = {
-            border = "double",
-            width = math.floor(vim.o.columns * 0.8),
-            height = math.floor(vim.o.lines * 0.8),
-        },
+local function run_in_buffer(cmd, title)
+    local bufnr = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_option(bufnr, "bufhidden", "wipe")
+    vim.api.nvim_buf_set_option(bufnr, "filetype", "log")
+
+    local win_id = vim.api.nvim_open_win(bufnr, true, {
+        relative = "editor",
+        width = math.floor(vim.o.columns * 0.8),
+        height = math.floor(vim.o.lines * 0.8),
+        row = math.floor(vim.o.lines * 0.1),
+        col = math.floor(vim.o.columns * 0.1),
+        style = "minimal",
+        border = "single",
     })
-    notify("Launching command in separate terminal: " .. title, "info", { title = title })
-    separate_terminal:toggle()
+
+    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "Running: " .. title, "" })
+
+    local job = Job:new({
+        command = "cmd.exe",
+        args = { "/C", cmd },
+        on_stdout = function(_, line)
+            vim.schedule(function()
+                vim.api.nvim_buf_set_lines(bufnr, -1, -1, false, { line })
+            end)
+        end,
+        on_stderr = function(_, line)
+            vim.schedule(function()
+                vim.api.nvim_buf_set_lines(bufnr, -1, -1, false, { "[ERROR] " .. line })
+            end)
+        end,
+        on_exit = function()
+            vim.schedule(function()
+                vim.api.nvim_buf_set_lines(bufnr, -1, -1, false, { "", "Process completed." })
+            end)
+        end,
+    })
+
+    job:start()
 end
 
 local function run_build_command(callback)
@@ -44,7 +69,7 @@ local function run_build_command(callback)
     )
 
     notify("Starting build process...", "info", { title = "Build Status" })
-    run_in_separate_terminal(cmd, "Unreal Build Process")
+    run_in_buffer(cmd, "Unreal Build Process")
     if callback then callback() end
 end
 
@@ -56,8 +81,15 @@ local function run_clang_database_command()
         target
     )
 
-    notify("Starting Clang database generation...", "info", { title = "Clang Database" })
-    run_in_separate_terminal(cmd, "Clang Database Generation")
+    notify("Clang database generation started", "info", { title = "Clang Database" })
+    -- Do not display output in a buffer for this command.
+    Job:new({
+        command = "cmd.exe",
+        args = { "/C", cmd },
+        on_exit = function()
+            notify("Clang database generation completed", "info", { title = "Clang Database" })
+        end,
+    }):start()
 end
 
 function M.unreal_build_toggle()
@@ -71,7 +103,7 @@ function M.unreal_run()
         u_project_path
     )
     notify("Launching Unreal Editor...", "info", { title = "Unreal Editor" })
-    run_in_separate_terminal(cmd, "Unreal Editor")
+    run_in_buffer(cmd, "Unreal Editor")
 end
 
 local dap = require('dap')
