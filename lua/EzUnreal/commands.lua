@@ -20,68 +20,44 @@ local engine_path = build_params.engine_path
 local target = build_params.project_name .. "Editor"
 local u_project_path = build_params.project_path .. "\\" .. build_params.project_name .. ".uproject"
 
-local function run_build_command(callback)
-    local build_terminal = Terminal:new({
-        cmd = string.format(
-            'dotnet "%s\\Engine\\Binaries\\DotNET\\UnrealBuildTool\\UnrealBuildTool.dll" %s Win64 Development -Project="%s" -WaitMutex',
-            engine_path,
-            target,
-            u_project_path
-        ),
-        direction = "horizontal",
-        close_on_exit = true,
-        on_close = function()
-            notify("Build process completed", "info", { title = "Build Status" })
-            if callback then callback() end
-        end,
-        on_stdout = function(_, output)
-            if string.find(output, "error") then
-                notify("Build Error: " .. output, "error", { title = "Build Error" })
-            end
-        end,
-        on_stderr = function(_, output)
-            notify("Build Error: " .. output, "error", { title = "Build Error" })
-        end,
+local function run_in_separate_terminal(cmd, title)
+    local separate_terminal = Terminal:new({
+        cmd = cmd,
+        direction = "float", -- Opens in a floating terminal
+        close_on_exit = false, -- Keeps the terminal open after execution
+        float_opts = {
+            border = "double",
+            width = math.floor(vim.o.columns * 0.8),
+            height = math.floor(vim.o.lines * 0.8),
+        },
     })
+    notify("Launching command in separate terminal: " .. title, "info", { title = title })
+    separate_terminal:toggle()
+end
+
+local function run_build_command(callback)
+    local cmd = string.format(
+        'dotnet "%s\\Engine\\Binaries\\DotNET\\UnrealBuildTool\\UnrealBuildTool.dll" %s Win64 Development -Project="%s" -WaitMutex',
+        engine_path,
+        target,
+        u_project_path
+    )
+
     notify("Starting build process...", "info", { title = "Build Status" })
-    build_terminal:toggle()
+    run_in_separate_terminal(cmd, "Unreal Build Process")
+    if callback then callback() end
 end
 
 local function run_clang_database_command()
-    local clang_terminal = Terminal:new({
-        cmd = string.format(
-            '"%s\\Engine\\Binaries\\DotNET\\UnrealBuildTool\\UnrealBuildTool.exe" -mode=GenerateClangDatabase -Project="%s" -game -engine "%s" Development Win64',
-            engine_path,
-            u_project_path,
-            target
-        ),
-        direction = "horizontal",
-        close_on_exit = true,
-        on_close = function(term)
-            notify("Clang database generation completed", "info", { title = "Clang Database" })
-            local generated_file_path = engine_path .. "\\compile_commands.json"
-            local target_file_path = build_params.project_path .. "\\compile_commands.json"
+    local cmd = string.format(
+        '"%s\\Engine\\Binaries\\DotNET\\UnrealBuildTool\\UnrealBuildTool.exe" -mode=GenerateClangDatabase -Project="%s" -game -engine "%s" Development Win64',
+        engine_path,
+        u_project_path,
+        target
+    )
 
-            -- Check if the target file exists and remove it before renaming
-            if vim.fn.filereadable(target_file_path) == 1 then
-                local remove_ok, remove_err = os.remove(target_file_path)
-                if not remove_ok then
-                    notify("Error removing existing file: " .. remove_err, "error", { title = "File Operation Error" })
-                    return
-                end
-            end
-
-            local ok, err = os.rename(generated_file_path, target_file_path)
-            if not ok then
-                notify("Error copying file: " .. err, "error", { title = "File Operation Error" })
-            else
-                notify("File copied successfully", "info", { title = "File Operation" })
-            end
-        end,
-    })
     notify("Starting Clang database generation...", "info", { title = "Clang Database" })
-    clang_terminal:toggle()
-endang_terminal:toggle()
+    run_in_separate_terminal(cmd, "Clang Database Generation")
 end
 
 function M.unreal_build_toggle()
@@ -89,17 +65,13 @@ function M.unreal_build_toggle()
 end
 
 function M.unreal_run()
-    local run_term = Terminal:new({
-        cmd = string.format(
-            '"%s\\Engine\\Binaries\\Win64\\UnrealEditor.exe" "%s"',
-            engine_path,
-            u_project_path
-        ),
-        direction = "horizontal",
-        close_on_exit = true,
-    })
+    local cmd = string.format(
+        '"%s\\Engine\\Binaries\\Win64\\UnrealEditor.exe" "%s"',
+        engine_path,
+        u_project_path
+    )
     notify("Launching Unreal Editor...", "info", { title = "Unreal Editor" })
-    run_term:toggle()
+    run_in_separate_terminal(cmd, "Unreal Editor")
 end
 
 local dap = require('dap')
