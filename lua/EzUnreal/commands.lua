@@ -20,74 +20,69 @@ local engine_path = build_params.engine_path
 local target = build_params.project_name .. "Editor"
 local u_project_path = build_params.project_path .. "\\" .. build_params.project_name .. ".uproject"
 
-local function run_in_buffer(cmd, title)
-    local bufnr = vim.api.nvim_create_buf(false, true)
-    vim.api.nvim_buf_set_option(bufnr, "bufhidden", "wipe")
-    vim.api.nvim_buf_set_option(bufnr, "filetype", "log")
-
-    local win_id = vim.api.nvim_open_win(bufnr, true, {
-        relative = "editor",
-        width = math.floor(vim.o.columns * 0.8),
-        height = math.floor(vim.o.lines * 0.8),
-        row = math.floor(vim.o.lines * 0.1),
-        col = math.floor(vim.o.columns * 0.1),
-        style = "minimal",
-        border = "single",
-    })
-
-    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "Running: " .. title, "" })
-
-    local job = Job:new({
-        command = "cmd.exe",
-        args = { "/C", cmd },
-        on_stdout = function(_, line)
-            vim.schedule(function()
-                vim.api.nvim_buf_set_lines(bufnr, -1, -1, false, { line })
-            end)
-        end,
-        on_stderr = function(_, line)
-            vim.schedule(function()
-                vim.api.nvim_buf_set_lines(bufnr, -1, -1, false, { "[ERROR] " .. line })
-            end)
-        end,
-        on_exit = function()
-            vim.schedule(function()
-                vim.api.nvim_buf_set_lines(bufnr, -1, -1, false, { "", "Process completed." })
-            end)
-        end,
-    })
-
-    job:start()
-end
+-- Singleton terminal instance for build
+local build_terminal
 
 local function run_build_command(callback)
-    local cmd = string.format(
+    if not build_terminal then
+        build_terminal = Terminal:new({
+            direction = "horizontal",
+            close_on_exit = true,
+            on_close = function()
+                notify("Build process completed", "info", { title = "Build Status" })
+                if callback then callback() end
+            end,
+            on_stdout = function(_, output)
+                if string.find(output, "error") then
+                    notify("Build Error: " .. output, "error", { title = "Build Error" })
+                end
+            end,
+            on_stderr = function(_, output)
+                notify("Build Error: " .. output, "error", { title = "Build Error" })
+            end,
+        })
+    end
+
+    build_terminal.cmd = string.format(
         'dotnet "%s\\Engine\\Binaries\\DotNET\\UnrealBuildTool\\UnrealBuildTool.dll" %s Win64 Development -Project="%s" -WaitMutex',
         engine_path,
         target,
         u_project_path
     )
-
     notify("Starting build process...", "info", { title = "Build Status" })
-    run_in_buffer(cmd, "Unreal Build Process")
-    if callback then callback() end
+    build_terminal:toggle()
 end
 
 local function run_clang_database_command()
-    local cmd = string.format(
+    notify("Starting Clang database generation...", "info", { title = "Clang Database" })
+    local clang_cmd = string.format(
         '"%s\\Engine\\Binaries\\DotNET\\UnrealBuildTool\\UnrealBuildTool.exe" -mode=GenerateClangDatabase -Project="%s" -game -engine "%s" Development Win64',
         engine_path,
         u_project_path,
         target
     )
 
-    notify("Clang database generation started", "info", { title = "Clang Database" })
-    -- Do not display output in a buffer for this command.
     Job:new({
-        command = "cmd.exe",
-        args = { "/C", cmd },
+        command = clang_cmd,
         on_exit = function()
             notify("Clang database generation completed", "info", { title = "Clang Database" })
+            local generated_file_path = engine_path .. "\\compile_commands.json"
+            local target_file_path = build_params.project_path .. "\\compile_commands.json"
+
+            if vim.fn.filereadable(target_file_path) == 1 then
+                local remove_ok, remove_err = os.remove(target_file_path)
+                if not remove_ok then
+                    notify("Error removing existing file: " .. remove_err, "error", { title = "File Operation Error" })
+                    return
+                end
+            end
+
+            local ok, err = os.rename(generated_file_path, target_file_path)
+            if not ok then
+                notify("Error copying file: " .. err, "error", { title = "File Operation Error" })
+            else
+                notify("File copied successfully", "info", { title = "File Operation" })
+            end
         end,
     }):start()
 end
@@ -96,14 +91,23 @@ function M.unreal_build_toggle()
     run_build_command(run_clang_database_command)
 end
 
+local run_terminal
+
 function M.unreal_run()
-    local cmd = string.format(
+    if not run_terminal then
+        run_terminal = Terminal:new({
+            direction = "horizontal",
+            close_on_exit = true,
+        })
+    end
+
+    run_terminal.cmd = string.format(
         '"%s\\Engine\\Binaries\\Win64\\UnrealEditor.exe" "%s"',
         engine_path,
         u_project_path
     )
     notify("Launching Unreal Editor...", "info", { title = "Unreal Editor" })
-    run_in_buffer(cmd, "Unreal Editor")
+    run_terminal:toggle()
 end
 
 local dap = require('dap')
