@@ -20,55 +20,49 @@ local engine_path = build_params.engine_path
 local target = build_params.project_name .. "Editor"
 local u_project_path = build_params.project_path .. "\\" .. build_params.project_name .. ".uproject"
 
--- Singleton terminal instance for build
-local build_terminal
-
 local function run_build_command(callback)
-    if not build_terminal then
-        build_terminal = Terminal:new({
-            direction = "horizontal",
-            close_on_exit = true,
-            on_close = function()
-                notify("Build process completed", "info", { title = "Build Status" })
-                if callback then callback() end
-            end,
-            on_stdout = function(_, output)
-                if string.find(output, "error") then
-                    notify("Build Error: " .. output, "error", { title = "Build Error" })
-                end
-            end,
-            on_stderr = function(_, output)
+    local build_terminal = Terminal:new({
+        cmd = string.format(
+            'dotnet "%s\\Engine\\Binaries\\DotNET\\UnrealBuildTool\\UnrealBuildTool.dll" %s Win64 Development -Project="%s" -WaitMutex',
+            engine_path,
+            target,
+            u_project_path
+        ),
+        direction = "horizontal",
+        close_on_exit = true,
+        on_close = function()
+            notify("Build process completed", "info", { title = "Build Status" })
+            if callback then callback() end
+        end,
+        on_stdout = function(_, output)
+            if string.find(output, "error") then
                 notify("Build Error: " .. output, "error", { title = "Build Error" })
-            end,
-        })
-    end
-
-    build_terminal.cmd = string.format(
-        'dotnet "%s\\Engine\\Binaries\\DotNET\\UnrealBuildTool\\UnrealBuildTool.dll" %s Win64 Development -Project="%s" -WaitMutex',
-        engine_path,
-        target,
-        u_project_path
-    )
+            end
+        end,
+        on_stderr = function(_, output)
+            notify("Build Error: " .. output, "error", { title = "Build Error" })
+        end,
+    })
     notify("Starting build process...", "info", { title = "Build Status" })
     build_terminal:toggle()
 end
 
 local function run_clang_database_command()
-    notify("Starting Clang database generation...", "info", { title = "Clang Database" })
-    local clang_cmd = string.format(
-        '"%s\\Engine\\Binaries\\DotNET\\UnrealBuildTool\\UnrealBuildTool.exe" -mode=GenerateClangDatabase -Project="%s" -game -engine "%s" Development Win64',
-        engine_path,
-        u_project_path,
-        target
-    )
-
-    Job:new({
-        command = clang_cmd,
-        on_exit = function()
+    local clang_terminal = Terminal:new({
+        cmd = string.format(
+            '"%s\\Engine\\Binaries\\DotNET\\UnrealBuildTool\\UnrealBuildTool.exe" -mode=GenerateClangDatabase -Project="%s" -game -engine "%s" Development Win64',
+            engine_path,
+            u_project_path,
+            target
+        ),
+        direction = "horizontal",
+        close_on_exit = true,
+        on_close = function(term)
             notify("Clang database generation completed", "info", { title = "Clang Database" })
             local generated_file_path = engine_path .. "\\compile_commands.json"
             local target_file_path = build_params.project_path .. "\\compile_commands.json"
 
+            -- Check if the target file exists and remove it before renaming
             if vim.fn.filereadable(target_file_path) == 1 then
                 local remove_ok, remove_err = os.remove(target_file_path)
                 if not remove_ok then
@@ -84,30 +78,28 @@ local function run_clang_database_command()
                 notify("File copied successfully", "info", { title = "File Operation" })
             end
         end,
-    }):start()
+    })
+    notify("Starting Clang database generation...", "info", { title = "Clang Database" })
+    clang_terminal:toggle()
+endang_terminal:toggle()
 end
 
 function M.unreal_build_toggle()
     run_build_command(run_clang_database_command)
 end
 
-local run_terminal
-
 function M.unreal_run()
-    if not run_terminal then
-        run_terminal = Terminal:new({
-            direction = "horizontal",
-            close_on_exit = true,
-        })
-    end
-
-    run_terminal.cmd = string.format(
-        '"%s\\Engine\\Binaries\\Win64\\UnrealEditor.exe" "%s"',
-        engine_path,
-        u_project_path
-    )
+    local run_term = Terminal:new({
+        cmd = string.format(
+            '"%s\\Engine\\Binaries\\Win64\\UnrealEditor.exe" "%s"',
+            engine_path,
+            u_project_path
+        ),
+        direction = "horizontal",
+        close_on_exit = true,
+    })
     notify("Launching Unreal Editor...", "info", { title = "Unreal Editor" })
-    run_terminal:toggle()
+    run_term:toggle()
 end
 
 local dap = require('dap')
