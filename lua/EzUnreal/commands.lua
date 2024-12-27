@@ -28,7 +28,7 @@ local function run_build_command(callback)
             target,
             u_project_path
         ),
-        direction = "tab",
+        direction = "horizontal",
         close_on_exit = true,
         on_close = function()
             notify("Build process completed", "info", { title = "Build Status" })
@@ -55,7 +55,7 @@ local function run_clang_database_command()
             u_project_path,
             target
         ),
-        direction = "tab",
+        direction = "horizontal",
         close_on_exit = true,
         on_close = function(term)
             notify("Clang database generation completed", "info", { title = "Clang Database" })
